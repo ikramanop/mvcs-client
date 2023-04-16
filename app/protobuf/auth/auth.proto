@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "github.com/ikramanop/mvcs-client/app/protobuf/auth";
+
+package auth;
+import "google/protobuf/empty.proto";
+
+service Auth {
+  rpc RegistrationWithKey(RegistrationWithKeyRequest) returns (google.protobuf.Empty);
+  rpc Me(google.protobuf.Empty) returns (MeMessage);
+}
+
+message RegistrationWithKeyRequest {
+  string username = 1;
+  string key = 2;
+}
+
+message MeMessage {
+  string username = 1;
+}
