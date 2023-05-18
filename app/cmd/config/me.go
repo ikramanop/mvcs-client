@@ -21,7 +21,7 @@ var ConfigMeCMD = &cobra.Command{
 }
 
 func me() error {
-	c, err := app.NewContainer(false, true)
+	c, err := app.NewContainer(false, true, false)
 	if err != nil {
 		return model.WrapError(ConfigCheckProcessError, err)
 	}

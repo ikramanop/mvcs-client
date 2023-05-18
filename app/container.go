@@ -25,15 +25,20 @@ type Container struct {
 	Diff difftool.Tool
 }
 
-func NewContainer(init bool, skipDB bool) (*Container, error) {
+func NewContainer(init bool, skipDB bool, skipClients bool) (*Container, error) {
 	cfg, err := config.NewConfigFromOS()
 	if err != nil {
 		return nil, model.WrapError(GetConfigError, err)
 	}
 
-	authClient, err := client.NewAuthClient(cfg)
-	if err != nil {
-		return nil, model.WrapError(GetAuthClientError, err)
+	var authClient client.Auth
+	if skipClients {
+		authClient, _ = client.NewAuthStubClient(cfg)
+	} else {
+		authClient, err = client.NewAuthClient(cfg)
+		if err != nil {
+			return nil, model.WrapError(GetAuthClientError, err)
+		}
 	}
 
 	var DB repository.Repository

@@ -29,7 +29,7 @@ var ConfigServerCMD = &cobra.Command{
 }
 
 func server() error {
-	c, err := app.NewContainer(false, true)
+	c, err := app.NewContainer(false, true, true)
 	if err != nil {
 		return model.WrapError(ConfigRegisterProcessError, err)
 	}

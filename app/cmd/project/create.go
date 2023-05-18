@@ -26,7 +26,7 @@ var ProjectCreateCMD = &cobra.Command{
 }
 
 func create() error {
-	c, err := app.NewContainer(true, false)
+	c, err := app.NewContainer(true, false, false)
 	if err != nil {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}

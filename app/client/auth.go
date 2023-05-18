@@ -26,6 +26,8 @@ type AuthClient struct {
 	c    auth.AuthClient
 }
 
+type AuthClientStub struct{}
+
 func NewAuthClient(cfg *config.ClientConfig) (*AuthClient, error) {
 	conn, err := grpc.Dial(cfg.ServerHost, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -40,6 +42,10 @@ func NewAuthClient(cfg *config.ClientConfig) (*AuthClient, error) {
 	}, nil
 }
 
+func NewAuthStubClient(cfg *config.ClientConfig) (*AuthClientStub, error) {
+	return &AuthClientStub{}, nil
+}
+
 func (cl *AuthClient) Register(ctx context.Context, login string, key string) error {
 	_, err := cl.c.RegistrationWithKey(ctx, &auth.RegistrationWithKeyRequest{
 		Username: login,
@@ -52,6 +58,10 @@ func (cl *AuthClient) Register(ctx context.Context, login string, key string) er
 	return nil
 }
 
+func (cl *AuthClientStub) Register(ctx context.Context, login string, key string) error {
+	return nil
+}
+
 func (cl *AuthClient) Me(ctx context.Context) (*auth.MeMessage, error) {
 	message, err := cl.c.Me(ctx, &empty.Empty{})
 	if err != nil {
@@ -59,4 +69,8 @@ func (cl *AuthClient) Me(ctx context.Context) (*auth.MeMessage, error) {
 	}
 
 	return message, nil
+}
+
+func (cl *AuthClientStub) Me(ctx context.Context) (*auth.MeMessage, error) {
+	return &auth.MeMessage{Username: ""}, nil
 }
