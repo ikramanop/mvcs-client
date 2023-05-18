@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ikramanop/mvcs-client/app/client"
 	"github.com/ikramanop/mvcs-client/app/config"
+	"github.com/ikramanop/mvcs-client/app/difftool"
 	"github.com/ikramanop/mvcs-client/app/model"
 	"github.com/ikramanop/mvcs-client/app/repository"
 	"google.golang.org/grpc/metadata"
@@ -14,12 +15,14 @@ const (
 	GetConfigError     = "ошибка в получении конфигурации"
 	GetAuthClientError = "ошибка при создании клиента авторизации"
 	GetRepositoryError = "ошибка при подключении к БД"
+	GetDiffToolError   = "ошибка при инициализации файловой системы"
 )
 
 type Container struct {
 	Cfg  *config.ClientConfig
 	Auth client.Auth
 	DB   repository.Repository
+	Diff difftool.Tool
 }
 
 func NewContainer(init bool, skipDB bool) (*Container, error) {
@@ -43,17 +46,25 @@ func NewContainer(init bool, skipDB bool) (*Container, error) {
 		}
 	}
 
+	diffTool, err := difftool.NewDiffTool()
+	if err != nil {
+		return nil, model.WrapError(GetDiffToolError, err)
+	}
+
 	return &Container{
 		Cfg:  cfg,
 		Auth: authClient,
 		DB:   DB,
+		Diff: diffTool,
 	}, nil
 }
 
 func (c *Container) GetContext(auth bool) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*c.Cfg.RequestTimeout)
 
-	ctx = metadata.AppendToOutgoingContext(ctx, "Authorization", c.Cfg.Auth.Key)
+	if auth {
+		ctx = metadata.AppendToOutgoingContext(ctx, "Authorization", c.Cfg.Auth.Key)
+	}
 
 	return ctx, cancel
 }
