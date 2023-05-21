@@ -17,6 +17,7 @@ const (
 	GetRepositoryError     = "ошибка при подключении к БД"
 	GetDiffToolError       = "ошибка при инициализации файловой системы"
 	GetProjectsClientError = "ошибка при создании клиента проектов"
+	GetProjectClientError  = "ошибка при создании клиента проекта"
 )
 
 type Container struct {
@@ -25,6 +26,7 @@ type Container struct {
 	DB       repository.Repository
 	Diff     difftool.Tool
 	Projects client.Projects
+	Project  client.Project
 }
 
 func NewContainer(init bool, skipDB bool, skipClients bool) (*Container, error) {
@@ -68,12 +70,23 @@ func NewContainer(init bool, skipDB bool, skipClients bool) (*Container, error) 
 		}
 	}
 
+	var projectClient client.Project
+	if skipClients {
+		projectClient, _ = client.NewProjectStubClient(cfg)
+	} else {
+		projectClient, err = client.NewProjectClient(cfg)
+		if err != nil {
+			return nil, model.WrapError(GetProjectClientError, err)
+		}
+	}
+
 	return &Container{
 		Cfg:      cfg,
 		Auth:     authClient,
 		DB:       DB,
 		Diff:     diffTool,
 		Projects: projectsClient,
+		Project:  projectClient,
 	}, nil
 }
 
