@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -13,12 +14,16 @@ import (
 )
 
 const (
-	ProjectAlreadyExistsOnServer = "проект уже есть на remote"
-	ProjectAlreadyExistsLocally  = "проект уже есть на local"
-	ProjectCreateProcessError    = "ошибка в процессе создания проекта"
-	BranchAlreadyExistsOnServer  = "ветка уже есть на remote"
-	BranchAlreadyExistsLocally   = "ветка уже есть на local"
-	BranchCreateProcessError     = "ошибка в процессе создания ветки"
+	CreateNewContainerError       = "ошибка при создании сессии"
+	GetWorkingRepositoryError     = "ошибка при получении рабочей директории"
+	CheckRepositoryExistenceError = "ошибка при получении репозитория"
+	GetProjectError               = "ошибка при получении проекта"
+	ProjectAlreadyExistsOnServer  = "проект уже есть на remote"
+	ProjectAlreadyExistsLocally   = "проект уже есть на local"
+	ProjectCreateProcessError     = "ошибка в процессе создания проекта"
+	BranchAlreadyExistsOnServer   = "ветка уже есть на remote"
+	BranchAlreadyExistsLocally    = "ветка уже есть на local"
+	BranchCreateProcessError      = "ошибка в процессе создания ветки"
 )
 
 type Project struct {
@@ -38,88 +43,29 @@ var ProjectCreateCMD = &cobra.Command{
 func create() error {
 	c, err := app.NewContainer(true, false, false)
 	if err != nil {
-		return model.WrapError(ProjectCreateProcessError, err)
+		return model.WrapError(CreateNewContainerError, err)
 	}
 
-	wd, err := utility.GetWorkingDirectory()
-
-	created, err := c.DB.CheckRepositoryExistence()
+	wd, err := GetWorkingDirectory(c)
 	if err != nil {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}
-
-	if created {
-		_, err := c.DB.GetProjectByName(&model.ProjectParams{Name: wd})
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return model.WrapError(ProjectCreateProcessError, err)
-		}
-		if err == nil {
-			fmt.Printf("Проект %s уже инициализирован\n", wd)
-
-			return nil
-		}
-	} else {
-		if err = c.DB.Init(); err != nil {
-			return model.WrapError(ProjectCreateProcessError, err)
-		}
+	if wd == "" {
+		return nil
 	}
 
 	ctx, cancel := c.GetContext(false)
 	defer cancel()
 
-	// чекаем на сервере наличие проекта с таким же именем
-	serverProject, err := c.Projects.Find(ctx, wd)
-	if err != nil {
-		return model.WrapError(ProjectCreateProcessError, err)
-	}
-	if serverProject != nil {
-		return model.WrapError(ProjectAlreadyExistsOnServer, err)
-	}
-
-	// создаем локально
-	if err = c.DB.CreateProject(&model.ProjectParams{Name: wd}); err != nil {
-		return model.WrapError(ProjectCreateProcessError, err)
-	}
-
-	dbProject, err := c.DB.GetProjectByName(&model.ProjectParams{Name: wd})
+	project, err := CreateProject(c, ctx, wd)
 	if err != nil {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}
 
-	fmt.Printf("Инициализирован проект %s в директории %s на local\n", dbProject.Name, wd)
-
-	// создаем на сервере
-	serverProject, err = c.Projects.Create(ctx, dbProject.Name)
+	branch, err := CreateBranch(c, project, ctx)
 	if err != nil {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}
-
-	fmt.Printf("Инициализирован проект %s в директории %s на remote\n", dbProject.Name, wd)
-
-	// создаем ветку локально
-	if err = c.DB.CreateBranch(&model.BranchParams{
-		Name:           "master",
-		ProjectId:      dbProject.Id,
-		UserIdentifier: c.Cfg.Auth.Login,
-		ParentBranchId: sql.NullInt32{},
-	}); err != nil {
-		return model.WrapError(BranchCreateProcessError, err)
-	}
-
-	dbBranch, err := c.DB.GetBranchByName(&model.BranchParams{Name: "master"})
-	if err != nil {
-		return model.WrapError(BranchCreateProcessError, err)
-	}
-
-	fmt.Printf("Инициализирована ветка %s на local\n", dbBranch.Name)
-
-	// создаем на сервере
-	_, err = c.Project.CreateBranch(ctx, dbBranch.Name, nil)
-	if err != nil {
-		return model.WrapError(BranchCreateProcessError, err)
-	}
-
-	fmt.Printf("Инициализирована ветка %s на remote\n", dbProject.Name)
 
 	//todo дальше отправить запросы на создание версий веток на сервере
 
@@ -130,7 +76,7 @@ func create() error {
 
 	for file, scam := range fileStructure {
 		if err := c.DB.CreateFile(&model.FileParams{
-			BranchId: dbBranch.Id,
+			BranchId: branch.Id,
 			FilePath: file,
 		}); err != nil {
 			return model.WrapError(ProjectCreateProcessError, err)
@@ -163,7 +109,7 @@ func create() error {
 	}
 
 	if err := c.DB.CreateBranchVersion(&model.BranchVersionParams{
-		BranchId:       dbBranch.Id,
+		BranchId:       branch.Id,
 		Uuid:           uuid.New().String(),
 		FilesStructure: string(extractedTreeJson),
 	}); err != nil {
@@ -173,4 +119,95 @@ func create() error {
 	fmt.Println("Версии файлов зафиксированы для ветки master")
 
 	return nil
+}
+
+func CreateBranch(c *app.Container, project *model.Project, ctx context.Context) (*model.Branch, error) {
+	// создаем ветку локально
+	if err := c.DB.CreateBranch(&model.BranchParams{
+		Name:           "master",
+		ProjectId:      project.Id,
+		UserIdentifier: c.Cfg.Auth.Login,
+		ParentBranchId: sql.NullInt32{},
+	}); err != nil {
+		return nil, model.WrapError(BranchCreateProcessError, err)
+	}
+
+	localBranch, err := c.DB.GetBranchByName(&model.BranchParams{Name: "master"})
+	if err != nil {
+		return nil, model.WrapError(BranchCreateProcessError, err)
+	}
+
+	fmt.Printf("Инициализирована ветка %s на local\n", localBranch.Name)
+
+	// создаем на сервере
+	_, err = c.Project.CreateBranch(ctx, localBranch.Name, nil)
+	if err != nil {
+		return nil, model.WrapError(BranchCreateProcessError, err)
+	}
+
+	fmt.Printf("Инициализирована ветка %s на remote\n", project.Name)
+
+	return localBranch, nil
+}
+
+func CreateProject(c *app.Container, ctx context.Context, wd string) (*model.Project, error) {
+	// чекаем на сервере наличие проекта с таким же именем
+	serverProject, err := c.Projects.Find(ctx, wd)
+	if err != nil {
+		return nil, model.WrapError(ProjectCreateProcessError, err)
+	}
+	if serverProject != nil {
+		return nil, model.WrapError(ProjectAlreadyExistsOnServer, err)
+	}
+
+	// создаем локально
+	if err = c.DB.CreateProject(&model.ProjectParams{Name: wd}); err != nil {
+		return nil, model.WrapError(ProjectCreateProcessError, err)
+	}
+
+	localProject, err := c.DB.GetProjectByName(&model.ProjectParams{Name: wd})
+	if err != nil {
+		return nil, model.WrapError(ProjectCreateProcessError, err)
+	}
+
+	fmt.Printf("Инициализирован проект %s в директории %s на local\n", localProject.Name, wd)
+
+	// создаем на сервере
+	serverProject, err = c.Projects.Create(ctx, localProject.Name)
+	if err != nil {
+		return nil, model.WrapError(ProjectCreateProcessError, err)
+	}
+
+	fmt.Printf("Инициализирован проект %s в директории %s на remote\n", localProject.Name, wd)
+
+	return localProject, nil
+}
+
+func GetWorkingDirectory(c *app.Container) (string, error) {
+	wd, err := utility.GetWorkingDirectory()
+	if err != nil {
+		return "", model.WrapError(GetWorkingRepositoryError, err)
+	}
+
+	repositoryExists, err := c.DB.CheckRepositoryExistence()
+	if err != nil {
+		return "", model.WrapError(CheckRepositoryExistenceError, err)
+	}
+
+	if repositoryExists {
+		_, err := c.DB.GetProjectByName(&model.ProjectParams{Name: wd})
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return "", model.WrapError(GetProjectError, err)
+		}
+		if err == nil {
+			fmt.Printf("Проект %s уже инициализирован\n", wd)
+
+			return "", nil
+		}
+	} else {
+		if err = c.DB.Init(); err != nil {
+			return "", model.WrapError(ProjectCreateProcessError, err)
+		}
+	}
+	return wd, nil
 }
