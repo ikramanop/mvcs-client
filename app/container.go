@@ -12,17 +12,19 @@ import (
 )
 
 const (
-	GetConfigError     = "ошибка в получении конфигурации"
-	GetAuthClientError = "ошибка при создании клиента авторизации"
-	GetRepositoryError = "ошибка при подключении к БД"
-	GetDiffToolError   = "ошибка при инициализации файловой системы"
+	GetConfigError         = "ошибка в получении конфигурации"
+	GetAuthClientError     = "ошибка при создании клиента авторизации"
+	GetRepositoryError     = "ошибка при подключении к БД"
+	GetDiffToolError       = "ошибка при инициализации файловой системы"
+	GetProjectsClientError = "ошибка при создании клиента проектов"
 )
 
 type Container struct {
-	Cfg  *config.ClientConfig
-	Auth client.Auth
-	DB   repository.Repository
-	Diff difftool.Tool
+	Cfg      *config.ClientConfig
+	Auth     client.Auth
+	DB       repository.Repository
+	Diff     difftool.Tool
+	Projects client.Projects
 }
 
 func NewContainer(init bool, skipDB bool, skipClients bool) (*Container, error) {
@@ -56,11 +58,22 @@ func NewContainer(init bool, skipDB bool, skipClients bool) (*Container, error) 
 		return nil, model.WrapError(GetDiffToolError, err)
 	}
 
+	var projectsClient client.Projects
+	if skipClients {
+		projectsClient, _ = client.NewProjectsStubClient(cfg)
+	} else {
+		projectsClient, err = client.NewProjectsClient(cfg)
+		if err != nil {
+			return nil, model.WrapError(GetProjectsClientError, err)
+		}
+	}
+
 	return &Container{
-		Cfg:  cfg,
-		Auth: authClient,
-		DB:   DB,
-		Diff: diffTool,
+		Cfg:      cfg,
+		Auth:     authClient,
+		DB:       DB,
+		Diff:     diffTool,
+		Projects: projectsClient,
 	}, nil
 }
 
