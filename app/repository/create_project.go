@@ -7,8 +7,8 @@ import (
 func (r *ProjectsRepository) CreateProject(params *model.ProjectParams) error {
 	_, err := r.sqlDB.Exec(
 		`
-insert into project (name) values (?);
-`, params.Name)
+insert into project (name, identifier) values (?, ?);
+`, params.Name, params.Identifier)
 	if err != nil {
 		return err
 	}

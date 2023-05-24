@@ -90,12 +90,16 @@ func NewContainer(init bool, skipDB bool, skipClients bool) (*Container, error) 
 	}, nil
 }
 
-func (c *Container) GetContext(auth bool) (context.Context, context.CancelFunc) {
+func (c *Container) GetContext(auth bool, projectId ...string) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*c.Cfg.RequestTimeout)
 
 	if auth {
 		ctx = metadata.AppendToOutgoingContext(ctx, "Authorization", c.Cfg.Auth.Key)
 	}
+	if projectId != nil {
+		ctx = metadata.AppendToOutgoingContext(ctx, "ProjectId", projectId[0])
+	}
+	ctx = metadata.AppendToOutgoingContext(ctx, "Content-Type", "application/grpc")
 
 	return ctx, cancel
 }

@@ -53,6 +53,7 @@ func (cl *ProjectsClient) Create(ctx context.Context, name string) (*messages.Pr
 	project, err := cl.c.Create(ctx, &messages.CreateRequest{
 		Name: name,
 	})
+
 	if err != nil {
 		return nil, model.WrapError(ProjectCreationError, err)
 	}
@@ -68,6 +69,9 @@ func (cl *ProjectsClient) Find(ctx context.Context, name string) (*messages.Proj
 	project, err := cl.c.Find(ctx, &messages.FindRequest{
 		Name: name,
 	})
+	if project == nil {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, model.WrapError(ProjectFindError, err)
 	}

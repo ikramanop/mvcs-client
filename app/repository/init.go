@@ -6,6 +6,7 @@ func (r *ProjectsRepository) Init() error {
 create table if not exists project
 (
     id         integer primary key autoincrement  not null,
+    identifier string                             not null,
     name       text unique                        not null,
     created_at datetime default CURRENT_TIMESTAMP not null
 );

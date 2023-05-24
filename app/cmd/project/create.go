@@ -55,7 +55,7 @@ func create() error {
 		return nil
 	}
 
-	ctx, cancel := c.GetContext(false)
+	ctx, cancel := c.GetContext(true)
 	defer cancel()
 
 	// получаем local и remote проекты
@@ -63,6 +63,9 @@ func create() error {
 	if err != nil {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}
+
+	ctx, cancel = c.GetContext(true, project.Identifier)
+	defer cancel()
 
 	// создаем master ветки в local и remote проектах
 	branch, err := CreateBranch(c, project, ctx)
@@ -147,12 +150,11 @@ func CreateBranch(c *app.Container, project *model.Project, ctx context.Context)
 	if err != nil {
 		return nil, model.WrapError(BranchCreateProcessError, err)
 	}
-	// тут наверное можно по айди, а не по имени
 	if remoteBranch.Name != localBranch.Name {
 		return nil, model.WrapError(BranchCreateProcessError, err)
 	}
 
-	fmt.Printf("Инициализирована ветка %s на remote\n", localBranch.Name)
+	fmt.Printf("Инициализирована ветка %s на remote\n", remoteBranch.Name)
 
 	return localBranch, nil
 }
@@ -184,7 +186,7 @@ func CreateProject(c *app.Container, ctx context.Context, wd string) (*model.Pro
 	}
 
 	// создаем локально
-	localProject, err := CreateLocalProject(c, wd)
+	localProject, err := CreateLocalProject(c, wd, remoteProject.Identifier)
 	if err != nil {
 		return nil, model.WrapError(ProjectCreateProcessError, err)
 	}
@@ -196,8 +198,8 @@ func CreateProject(c *app.Container, ctx context.Context, wd string) (*model.Pro
 	return localProject, nil
 }
 
-func CreateLocalProject(c *app.Container, wd string) (*model.Project, error) {
-	if err := c.DB.CreateProject(&model.ProjectParams{Name: wd}); err != nil {
+func CreateLocalProject(c *app.Container, wd string, identifier string) (*model.Project, error) {
+	if err := c.DB.CreateProject(&model.ProjectParams{Name: wd, Identifier: identifier}); err != nil {
 		return nil, model.WrapError(ProjectCreateProcessError, err)
 	}
 
@@ -212,7 +214,7 @@ func CreateLocalProject(c *app.Container, wd string) (*model.Project, error) {
 }
 
 func CreateRemoteProject(c *app.Container, ctx context.Context, wd string) (*messages.Project, error) {
-	project, err := CheckRemoteProjectExists(c, ctx, wd)
+	project, err := GetProjectIfExists(c, ctx, wd)
 	if err != nil {
 		return nil, model.WrapError(ProjectCreateProcessError, err)
 	}
@@ -231,13 +233,10 @@ func CreateRemoteProject(c *app.Container, ctx context.Context, wd string) (*mes
 	return project, nil
 }
 
-func CheckRemoteProjectExists(c *app.Container, ctx context.Context, wd string) (*messages.Project, error) {
+func GetProjectIfExists(c *app.Container, ctx context.Context, wd string) (*messages.Project, error) {
 	serverProject, err := c.Projects.Find(ctx, wd)
 	if err != nil {
 		return nil, model.WrapError(ProjectCreateProcessError, err)
-	}
-	if serverProject != nil {
-		return nil, nil
 	}
 	return serverProject, nil
 }

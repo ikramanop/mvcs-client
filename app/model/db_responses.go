@@ -6,9 +6,10 @@ import (
 )
 
 type Project struct {
-	Id        int       `sql:"id"`
-	Name      string    `sql:"name"`
-	CreatedAt time.Time `sql:"created_at"`
+	Id         int       `sql:"id"`
+	Identifier string    `sql:"identifier"`
+	Name       string    `sql:"name"`
+	CreatedAt  time.Time `sql:"created_at"`
 }
 
 type Branch struct {

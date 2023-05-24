@@ -61,7 +61,6 @@ func (cl *ProjectClient) CreateBranch(ctx context.Context, name string, parentBr
 	if err != nil {
 		return nil, model.WrapError(BranchCreationError, err)
 	}
-
 	return branch, nil
 }
 

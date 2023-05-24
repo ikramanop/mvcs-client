@@ -3,7 +3,8 @@ package model
 import "database/sql"
 
 type ProjectParams struct {
-	Name string
+	Name       string
+	Identifier string
 }
 
 type BranchParams struct {
