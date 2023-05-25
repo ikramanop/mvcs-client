@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/ikramanop/mvcs-client/app/config"
 	"github.com/ikramanop/mvcs-client/app/model"
 	"github.com/ikramanop/mvcs-client/app/protobuf/messages"
@@ -21,7 +22,7 @@ const (
 
 type Project interface {
 	CreateBranch(ctx context.Context, name string, parentBranchId *int32) (*messages.Branch, error)
-	//GetAllBranches(ctx context.Context) (*messages.GetBranchesResponse, error)
+	GetAllBranches(ctx context.Context) (*messages.GetBranchesResponse, error)
 	//todo
 	//UploadFile(ctx context.Context, branchId int32, file file) (*messages.UploadFileResponse, error)
 	//UploadFiles(ctx context.Context, branchId int32, file file) (*messages.UploadFilesResponse, error)
@@ -68,17 +69,14 @@ func (cl *ProjectClientStub) CreateBranch(ctx context.Context, name string, pare
 	return nil, nil
 }
 
-//todo add implementation for ALL branches. GetBranchesResponse() takes []*Branch only.
-//func (cl *ProjectClient) GetAllBranches(ctx context.Context) (*messages.GetBranchesResponse, error) {
-//	branches, err := cl.c.GetAllBranches(ctx, &messages.GetBranchesResponse{
-//		Branches:
-//	})
-//	if err != nil {
-//		return nil, model.WrapError(GetAllBranchesError, err)
-//	}
-//
-//	return branches, nil
-//}
+func (cl *ProjectClient) GetAllBranches(ctx context.Context) (*messages.GetBranchesResponse, error) {
+	branches, err := cl.c.GetAllBranches(ctx, &empty.Empty{})
+	if err != nil {
+		return nil, model.WrapError(GetAllBranchesError, err)
+	}
+
+	return branches, nil
+}
 
 func (cl *ProjectClientStub) GetAllBranches(ctx context.Context) (*messages.GetBranchesResponse, error) {
 	return nil, nil
