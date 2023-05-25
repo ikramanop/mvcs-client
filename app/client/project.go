@@ -18,14 +18,15 @@ const (
 	FileUploadError            = "ошибка при загрузке файла"
 	FilesUploadError           = "ошибка при загрузке файлов"
 	GetFileVersionError        = "ошибка при получении версии файла"
+	UploadFileError            = "ошибка при загрузки файла на remote"
 )
 
 type Project interface {
 	CreateBranch(ctx context.Context, name string, parentBranchId *int32) (*messages.Branch, error)
 	GetAllBranches(ctx context.Context) (*messages.GetBranchesResponse, error)
 	//todo
-	//UploadFile(ctx context.Context, branchId int32, file file) (*messages.UploadFileResponse, error)
-	//UploadFiles(ctx context.Context, branchId int32, file file) (*messages.UploadFilesResponse, error)
+	UploadFile(ctx context.Context, branchId int32, file *messages.FileRequest) (*messages.UploadFileResponse, error)
+	//UploadFiles(ctx context.Context, branchId int32, file *model.File) (*messages.UploadFilesResponse, error)
 	//GetFileVersions(ctx context.Context) (*messages.FileResponse, error)
 }
 
@@ -79,5 +80,22 @@ func (cl *ProjectClient) GetAllBranches(ctx context.Context) (*messages.GetBranc
 }
 
 func (cl *ProjectClientStub) GetAllBranches(ctx context.Context) (*messages.GetBranchesResponse, error) {
+	return nil, nil
+}
+
+func (cl *ProjectClient) UploadFile(ctx context.Context, branchId int32, file *messages.FileRequest) (*messages.UploadFileResponse, error) {
+	fileResponse, err := cl.c.UploadFile(ctx, &messages.UploadFileRequest{
+		BranchId: branchId,
+		File:     file,
+	})
+
+	if err != nil {
+		return nil, model.WrapError(UploadFileError, err)
+	}
+
+	return fileResponse, nil
+}
+
+func (cl *ProjectClientStub) UploadFile(ctx context.Context, branchId int32, file *messages.FileRequest) (*messages.UploadFileResponse, error) {
 	return nil, nil
 }

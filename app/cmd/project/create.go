@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ const (
 	BranchAlreadyExistsOnServer   = "ветка уже есть на remote"
 	BranchAlreadyExistsLocally    = "ветка уже есть на local"
 	BranchCreateProcessError      = "ошибка в процессе создания ветки"
+	UploadFilesToRemoteError      = "ошибка в процессе загрузки файлов на remote"
 )
 
 type Project struct {
@@ -73,19 +75,15 @@ func create() error {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}
 
-	//todo дальше отправить запросы на создание версий веток на сервере
-
-	err = AddFilesToLocalDB(c, branch)
+	err = AddFilesToLocalDB(c, ctx, branch)
 	if err != nil {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}
 
-	fmt.Println("Версии файлов зафиксированы для ветки master")
-
 	return nil
 }
 
-func AddFilesToLocalDB(c *app.Container, branch *model.Branch) error {
+func AddFilesToLocalDB(c *app.Container, ctx context.Context, branch *model.Branch) error {
 	fileStructure, err := c.Diff.GetFileStructureWithHashesAndInfo()
 	if err != nil {
 		return model.WrapError(ProjectCreateProcessError, err)
@@ -111,11 +109,24 @@ func AddFilesToLocalDB(c *app.Container, branch *model.Branch) error {
 
 		if err := c.DB.CreateFileVersion(&model.FileVersionParams{
 			FileId:  fileDB.Id,
-			Hash:    string(scam.Hash),
+			Hash:    base64.URLEncoding.EncodeToString(scam.Hash),
 			Content: content,
 		}); err != nil {
 			return model.WrapError(ProjectCreateProcessError, err)
 		}
+
+		fileRequest := messages.FileRequest{
+			FilePath: file,
+			Hash:     base64.URLEncoding.EncodeToString(scam.Hash),
+			Content:  content,
+		}
+
+		_, err = UploadFileToRemote(c, ctx, branch, &fileRequest)
+		if err != nil {
+			return model.WrapError(ProjectCreateProcessError, err)
+		}
+
+		fmt.Println("Версии файлов зафиксированы для ветки master на remote")
 	}
 
 	extractedTree := c.Diff.ExtractFileTree(fileStructure)
@@ -133,7 +144,18 @@ func AddFilesToLocalDB(c *app.Container, branch *model.Branch) error {
 		return model.WrapError(ProjectCreateProcessError, err)
 	}
 
+	fmt.Println("Версии файлов зафиксированы для ветки master на local")
+
 	return nil
+}
+
+func UploadFileToRemote(c *app.Container, ctx context.Context, branch *model.Branch, fileRequest *messages.FileRequest) (*messages.UploadFileResponse, error) {
+	fileResponse, err := c.Project.UploadFile(ctx, int32(branch.Id), fileRequest)
+	if err != nil {
+		return nil, model.WrapError(UploadFilesToRemoteError, err)
+	}
+
+	return fileResponse, nil
 }
 
 func CreateBranch(c *app.Container, project *model.Project, ctx context.Context) (*model.Branch, error) {
