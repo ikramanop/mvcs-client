@@ -1,10 +1,12 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/ikramanop/mvcs-client/app"
 	"github.com/ikramanop/mvcs-client/app/model"
+	"github.com/ikramanop/mvcs-client/app/protobuf/messages"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 const GetProjectsListFromRemote = "ошибка при получении списка веток с remote"
@@ -32,7 +34,18 @@ func getProjectsList() error {
 		return model.WrapError(GetProjectsListFromRemote, err)
 	}
 
-	fmt.Println(projectsList)
+	RenderProjectsList(projectsList)
 
 	return nil
+}
+
+func RenderProjectsList(projectsList *messages.ProjectList) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"ID", " Название"})
+	for _, project := range projectsList.Projects {
+		t.AppendRow([]interface{}{project.Identifier, project.Name})
+	}
+	t.SetStyle(table.StyleLight)
+	t.Render()
 }

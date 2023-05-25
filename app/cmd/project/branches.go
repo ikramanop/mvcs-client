@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/ikramanop/mvcs-client/app"
 	"github.com/ikramanop/mvcs-client/app/model"
 	"github.com/ikramanop/mvcs-client/app/protobuf/messages"
 	"github.com/ikramanop/mvcs-client/app/utility"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 const (
@@ -48,7 +49,7 @@ func getBranches() error {
 		return model.WrapError(GetAllBranchesError, err)
 	}
 
-	fmt.Println(branches)
+	RenderBranches(branches)
 
 	return nil
 }
@@ -60,4 +61,15 @@ func GetAllBranches(c *app.Container, ctx context.Context) (*messages.GetBranche
 	}
 
 	return branches, err
+}
+
+func RenderBranches(branches *messages.GetBranchesResponse) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"ID", " Название"})
+	for _, branch := range branches.Branches {
+		t.AppendRow([]interface{}{branch.Id, branch.Name})
+	}
+	t.SetStyle(table.StyleLight)
+	t.Render()
 }
