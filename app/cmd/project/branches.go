@@ -6,6 +6,7 @@ import (
 	"github.com/ikramanop/mvcs-client/app"
 	"github.com/ikramanop/mvcs-client/app/model"
 	"github.com/ikramanop/mvcs-client/app/protobuf/messages"
+	"github.com/ikramanop/mvcs-client/app/utility"
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +31,16 @@ func getBranches() error {
 	}
 
 	ctx, cancel := c.GetContext(true)
+	defer cancel()
+
+	wd, err := utility.GetWorkingDirectory()
+	if err != nil {
+		return model.WrapError(GetWorkingRepositoryError, err)
+	}
+
+	project, err := c.Projects.Find(ctx, wd)
+
+	ctx, cancel = c.GetContext(true, project.Identifier)
 	defer cancel()
 
 	branches, err := GetAllBranches(c, ctx)
