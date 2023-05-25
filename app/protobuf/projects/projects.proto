@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option go_package = "github.com/ikramanop/mvcs-client/app/protobuf/projects";
+
+package projects;
+import "google/protobuf/empty.proto";
+import "messages/messages.proto";
+
+service Projects {
+  rpc Create(messages.CreateRequest) returns(messages.Project);
+  rpc Find(messages.FindRequest) returns(messages.Project);
+  rpc GetAll(google.protobuf.Empty) returns(messages.ProjectList);
+}

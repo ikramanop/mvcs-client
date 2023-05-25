@@ -2,15 +2,28 @@ package utility
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/ikramanop/mvcs-client/app/model"
 )
 
 const (
-	OpenFileError   = "ошибка при открытии файла"
-	CreateFileError = "ошибка при создании файла"
-	WriteFileError  = "ошибка при записи файла"
+	OpenFileError         = "ошибка при открытии файла"
+	CreateFileError       = "ошибка при создании файла"
+	WriteFileError        = "ошибка при записи файла"
+	WorkingDirectoryError = "ошибка при получении рабочей директории"
 )
+
+func GetWorkingDirectory() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", model.WrapError(WorkingDirectoryError, err)
+	}
+
+	relDir := filepath.Base(dir)
+
+	return relDir, nil
+}
 
 func GetFileContent(filename string) ([]byte, error) {
 	body, err := os.ReadFile(filename)

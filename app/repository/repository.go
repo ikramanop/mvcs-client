@@ -17,6 +17,15 @@ const (
 
 type Repository interface {
 	Init() error
+	CheckRepositoryExistence() (bool, error)
+	CreateProject(params *model.ProjectParams) error
+	GetProjectByName(params *model.ProjectParams) (*model.Project, error)
+	CreateBranch(params *model.BranchParams) error
+	GetBranchByName(params *model.BranchParams) (*model.Branch, error)
+	CreateFile(params *model.FileParams) error
+	GetFileByPath(params *model.FileParams) (*model.File, error)
+	CreateFileVersion(params *model.FileVersionParams) error
+	CreateBranchVersion(params *model.BranchVersionParams) error
 }
 
 type ProjectsRepository struct {
